@@ -7,7 +7,7 @@ class Client:
 
     def __init__(self):
         self.server_host = "localhost"
-        self.server_port = 50003
+        self.server_port = 50005
         self.socket = None
         self.player_num = None
         self.game = Game()
@@ -17,6 +17,7 @@ class Client:
         self.socket.connect((self.server_host, self.server_port))
 
     def get_player_num(self):
+        print("Connected to server. Waiting for another player to join...")
         data = self.socket.recv(1024)
         json_data = json.loads(data.decode())
         self.player_num = json_data["player_num"]

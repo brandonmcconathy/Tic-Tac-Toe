@@ -70,6 +70,10 @@ class Game:
 
         # Wait for acitve player to take turn
         turn_bytes = self.active_player.socket.recv(2048)
+        if not turn_bytes:
+            # Connection closed
+            return False
+
         turn_data = json.loads(turn_bytes.decode())
         column = turn_data["column"]
 
@@ -81,10 +85,20 @@ class Game:
         self.non_active_player.socket.send(board_data)
         self.active_player.socket.send(board_data)
 
+        # Successful turn
+        return True
+    
+    def close_connections(self):
+        print("Room Process: A client disconnected. Closing connection")
+        self.player1.socket.close()
+        self.player2.socket.close()
+
     def start_game(self):
         self.assign_players()
         while True:
-            self.take_turn()
+            if not self.take_turn():
+                self.close_connections()
+                break
             if self.check_win():
                 break
             self.update_active_player()
