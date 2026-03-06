@@ -4,6 +4,8 @@ import os
 import signal
 import time
 
+from game import Game
+
 class Player:
 
     def __init__(self, player_socket):
@@ -26,7 +28,6 @@ class Room:
         self.pid = pid
 
     def kill_room(self):
-        print(self.pid)
         os.kill(self.pid, signal.SIGKILL)
 
 
@@ -34,30 +35,31 @@ def put_new_connection_in_room(rooms, new_socket):
     # Make new player
     player = Player(new_socket)
 
-    # Add player to a room with space
+    # Add player to existing room
     for room in rooms:
         if room.get_num_players() < 2:
             room.add_player(player)
+            
+            # Start room process
+            newpid = os.fork()
+            if newpid == 0:
+                # Move process to game loop
+                new_game = Game(room)
+                new_game.start_game
+                os._exit(0)
+            room.set_pid(newpid)
             return
     
     # Make new room
     new_room = make_new_room()
     new_room.add_player(player)
     rooms.append(new_room)
-    return
 
         
 def make_new_room():
     new_room = Room()
-
-    # Make new process for the room
-    newpid = os.fork()
-    if newpid == 0:
-        # Move room process to game loop
-        while True:
-            time.sleep(1)
-    new_room.set_pid(newpid)
     return new_room
+
 
 def reap_children(signum, frame):
     while True:
