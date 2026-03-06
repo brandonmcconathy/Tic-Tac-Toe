@@ -9,6 +9,7 @@ class Game:
         self.player2 = None
         self.active_player = None
         self.non_active_player = None
+        self.last_move = None
         self.board = [[' ',' ',' ',' ',' ',' ',' '],
                       [' ',' ',' ',' ',' ',' ',' '],
                       [' ',' ',' ',' ',' ',' ',' '],
@@ -23,6 +24,15 @@ class Game:
             if row[column] == ' ':
                 row_to_update = i
         self.board[row_to_update][column] = self.active_player.symbol
+        self.last_move = (row_to_update, column)
+
+    def check_win(self):
+
+        row = self.last_move[0]
+        col = self.last_move[1]
+        return False
+
+
 
     def update_active_player(self):
         temp = self.active_player
@@ -59,7 +69,7 @@ class Game:
         self.non_active_player.socket.send(non_active_player_data)
 
         # Wait for acitve player to take turn
-        turn_bytes = self.active_player.socket.recv(1024)
+        turn_bytes = self.active_player.socket.recv(2048)
         turn_data = json.loads(turn_bytes.decode())
         column = turn_data["column"]
 
@@ -71,10 +81,11 @@ class Game:
         self.non_active_player.socket.send(board_data)
         self.active_player.socket.send(board_data)
 
-        self.update_active_player()
-
     def start_game(self):
         self.assign_players()
         while True:
             self.take_turn()
+            if self.check_win():
+                break
+            self.update_active_player()
 

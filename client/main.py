@@ -7,7 +7,7 @@ class Client:
 
     def __init__(self):
         self.server_host = "localhost"
-        self.server_port = 50002
+        self.server_port = 50003
         self.socket = None
         self.player_num = None
         self.game = Game()
@@ -20,6 +20,8 @@ class Client:
         data = self.socket.recv(1024)
         json_data = json.loads(data.decode())
         self.player_num = json_data["player_num"]
+        print("You are player %d" %self.player_num)
+        print("You will have the symbol %s" %('X' if self.player_num == 1 else 'O'))
 
     def validate_column(self, column):
         if not column.isdigit():
@@ -35,6 +37,7 @@ class Client:
         self.game.board = turn_data["board"]
         if turn_data["is_active"]:
             # Make move
+            print("It's your turn!")
             column = input("Enter a column number from 1-7: ")
 
             # Validate input
@@ -45,10 +48,13 @@ class Client:
             column_data = json.dumps({"column": column}).encode()
             self.socket.send(column_data)
 
+        else:
+            print("Please wait for the other player to make their move.")
+
         # Wait for updated board
-        other_player_move_bytes = self.socket.recv(1024)
-        other_player_turn_data = json.loads(other_player_move_bytes.decode())
-        self.game.board = other_player_turn_data["board"]
+        board_bytes = self.socket.recv(2048)
+        board_data = json.loads(board_bytes.decode())
+        self.game.board = board_data["board"]
         self.print_board()
 
 
