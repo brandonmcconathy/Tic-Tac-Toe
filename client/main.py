@@ -3,6 +3,10 @@ import json
 
 from game import Game
 
+class ConnectionError(Exception):
+    """Raised when client gets disconnected from the server"""
+    pass
+
 class Client:
 
     def __init__(self):
@@ -39,6 +43,8 @@ class Client:
 
     def take_turn(self):
         turn_bytes = self.socket.recv(1024)
+        if not turn_bytes:
+            raise ConnectionError
         turn_data = json.loads(turn_bytes.decode())
         self.game.board = turn_data["board"]
         if turn_data["is_active"]:
@@ -59,6 +65,8 @@ class Client:
 
         # Wait for updated board
         board_bytes = self.socket.recv(2048)
+        if not board_bytes:
+            raise ConnectionError
         board_data = json.loads(board_bytes.decode())
         self.game.board = board_data["board"]
         self.print_board()
@@ -73,10 +81,18 @@ class Client:
             
             print("\n---------------")
 
+    def handle_disconnection(self):
+        self.socket.close()
+        print("You have been disconnected from the server.")
+
 if __name__ == "__main__":
     client = Client()
     client.connect_to_server()
     client.get_player_num()
     client.print_board()
     while True:
-        client.take_turn()
+        try:
+            client.take_turn()
+        except ConnectionError:
+            client.handle_disconnection()
+            break

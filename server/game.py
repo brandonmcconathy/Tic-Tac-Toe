@@ -3,6 +3,10 @@ import random
 import socket
 import os
 
+class ConnectionError(Exception):
+    """Raised when client gets disconnected from the server"""
+    pass
+
 class Game:
 
     def __init__(self, room):
@@ -147,13 +151,13 @@ class Game:
             self.active_player.socket.send(active_player_data)
             self.non_active_player.socket.send(non_active_player_data)
         except BrokenPipeError:
-            self.close_connections()
+            raise ConnectionError
 
         # Wait for acitve player to take turn
         turn_bytes = self.active_player.socket.recv(2048)
         if not turn_bytes:
             # Connection closed
-            return False
+            raise ConnectionError
 
         turn_data = json.loads(turn_bytes.decode())
         column = turn_data["column"]
@@ -165,39 +169,32 @@ class Game:
         board_data = json.dumps({"board": self.board}).encode()
         self.non_active_player.socket.send(board_data)
         self.active_player.socket.send(board_data)
-
-        # Successful turn
-        return True
     
     def close_connections(self):
         print("Room Process: A client disconnected. Closing connection")
         try:
             self.player1.socket.shutdown(socket.SHUT_RDWR)
+            self.player1.socket.close()
         except OSError:
-            try:
-                self.player2.socket.shutdown(socket.SHUT_RDWR)
-
-            except OSError:
-                print("Room Process: Room exiting after 2 errors")
-                os._exit(0)
-        self.player1.socket.close()
+            print("Room Process: Player 1 closed the connection already.")
 
         try:
             self.player2.socket.shutdown(socket.SHUT_RDWR)
+            self.player2.socket.close()
         except OSError:
-            print("Room Process: Room exiting after 1 error")
-            os._exit(0)
+            print("Room Process: Player 2 closed the connection already.")
         
-        self.player2.socket.close()
         print("Room Process: Room exiting")
         os._exit(0)
 
     def start_game(self):
         self.assign_players()
         while True:
-            if not self.take_turn():
-                self.close_connections()
-                break
+            try:
+                self.take_turn()
+            except ConnectionError:
+                self.close_connections()    # Process exits in here
+
             if self.check_win():
                 break
             self.update_active_player()
