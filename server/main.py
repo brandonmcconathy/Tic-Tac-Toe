@@ -62,9 +62,8 @@ class Server:
             if newpid == 0:
                 # Move process to game loop
                 new_game = Game(self.curr_room)
-                new_game.start_game()
-                print("Room Process: Room exiting")
-                os._exit(0)
+                new_game.start_game()   # Room process will exit and never return here
+
             print("Starting new room process with pid: ", newpid)
             return
         

@@ -1,5 +1,7 @@
 import json
 import random
+import socket
+import os
 
 class Game:
 
@@ -109,9 +111,6 @@ class Game:
 
         # Did not detect win
         return False
-        
-
-
 
     def update_active_player(self):
         temp = self.active_player
@@ -144,8 +143,11 @@ class Game:
         # Send message to players to tell them if it is their turn
         active_player_data = json.dumps({"is_active": True, "board": self.board}).encode()
         non_active_player_data = json.dumps({"is_active": False, "board": self.board}).encode()
-        self.active_player.socket.send(active_player_data)
-        self.non_active_player.socket.send(non_active_player_data)
+        try:
+            self.active_player.socket.send(active_player_data)
+            self.non_active_player.socket.send(non_active_player_data)
+        except BrokenPipeError:
+            self.close_connections()
 
         # Wait for acitve player to take turn
         turn_bytes = self.active_player.socket.recv(2048)
@@ -169,8 +171,26 @@ class Game:
     
     def close_connections(self):
         print("Room Process: A client disconnected. Closing connection")
+        try:
+            self.player1.socket.shutdown(socket.SHUT_RDWR)
+        except OSError:
+            try:
+                self.player2.socket.shutdown(socket.SHUT_RDWR)
+
+            except OSError:
+                print("Room Process: Room exiting after 2 errors")
+                os._exit(0)
         self.player1.socket.close()
+
+        try:
+            self.player2.socket.shutdown(socket.SHUT_RDWR)
+        except OSError:
+            print("Room Process: Room exiting after 1 error")
+            os._exit(0)
+        
         self.player2.socket.close()
+        print("Room Process: Room exiting")
+        os._exit(0)
 
     def start_game(self):
         self.assign_players()
