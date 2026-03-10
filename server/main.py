@@ -1,9 +1,10 @@
 import socket
 import os
 import signal
+import json
 
 from game import Game
-from room import Room, SinglePlayerRoom
+from room import MultiPlayerRoom, SinglePlayerRoom
 from connectionerror import ConnectionError
 
 class Player:
@@ -18,7 +19,7 @@ class Server:
     def __init__(self):
         self.port = 50000       # Random port
         self.socket = None
-        self.curr_room = Room()
+        self.curr_room = MultiPlayerRoom()
 
     def start_server(self):
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -38,9 +39,10 @@ class Server:
         if not opponent_bytes:
             # Connection closed
             raise ConnectionError
+        opponent_data = json.loads(opponent_bytes.decode())
         
-        play_player = opponent_bytes["play_player"]
-        difficulty = opponent_bytes["difficulty"]
+        play_player = opponent_data["play_player"]
+        difficulty = opponent_data["difficulty"]
         self.put_new_connection_in_room(connection, play_player, difficulty)
 
     def put_new_connection_in_room(self, new_socket, play_player, difficulty):
@@ -80,7 +82,7 @@ class Server:
             return
         
         # curr_room is full. Add player to new room
-        new_room = Room()
+        new_room = MultiPlayerRoom()
         new_room.add_player(player)
         self.curr_room = new_room
 

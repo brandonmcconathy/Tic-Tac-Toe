@@ -1,7 +1,7 @@
 import json
-import random
 import socket
 import os
+from abc import ABC, abstractmethod
 
 from connectionerror import ConnectionError
 
@@ -9,10 +9,6 @@ class Game:
 
     def __init__(self, room):
         self.room = room
-        self.player1 = None
-        self.player2 = None
-        self.active_player = None
-        self.non_active_player = None
         self.last_move = None
         self.game_over = False
         self.board = [[' ',' ',' ',' ',' ',' ',' '],
@@ -22,19 +18,19 @@ class Game:
                       [' ',' ',' ',' ',' ',' ',' '],
                       [' ',' ',' ',' ',' ',' ',' ']]
         
-    def update_board(self, column):
+    def update_board(self, column, symbol):
         # Updates lowest empty row in given column
         row_to_update = 0
         for i, row in enumerate(self.board):
             if row[column] == ' ':
                 row_to_update = i
-        self.board[row_to_update][column] = self.active_player.symbol
+        self.board[row_to_update][column] = symbol
         self.last_move = (row_to_update, column)
 
     def check_win(self):
         row = self.last_move[0]
         col = self.last_move[1]
-        last_symbol = self.active_player.symbol
+        last_symbol = self.board[row][col]
 
         # Check horizontal
         left_bound = max(0, col - 3)
@@ -119,45 +115,18 @@ class Game:
         # Did not detect win
         self.game_over = False
 
-    def update_active_player(self):
-        temp = self.active_player
-        self.active_player = self.non_active_player
-        self.non_active_player = temp
-
-    def assign_players(self):
-        # Randomly assign players a player number
-        first_player = random.randint(0, 1)
-        self.player1 = self.room.players[first_player]
-        self.player2 = self.room.players[0 if first_player else 1]
-
-        # Assign symbols to players
-        self.player1.symbol = 'X'
-        self.player2.symbol = 'O'
-
-        # Set player 1 as active
-        self.active_player = self.player1
-        self.non_active_player = self.player2
-
-        # Send player 1 their player number
-        player1_data = json.dumps({"player_num": 1}).encode()
-        self.player1.socket.send(player1_data)
-
-        # Send player 2 their player number
-        player2_data = json.dumps({"player_num": 2}).encode()
-        self.player2.socket.send(player2_data)
-
     def take_turn(self):
         # Send message to players to tell them if it is their turn
         active_player_data = json.dumps({"is_active": True, "board": self.board}).encode()
         non_active_player_data = json.dumps({"is_active": False, "board": self.board}).encode()
         try:
-            self.active_player.socket.send(active_player_data)
-            self.non_active_player.socket.send(non_active_player_data)
+            self.room.active_player.socket.send(active_player_data)
+            self.room.non_active_player.socket.send(non_active_player_data)
         except BrokenPipeError:
             raise ConnectionError
 
         # Wait for acitve player to take turn
-        turn_bytes = self.active_player.socket.recv(4096)
+        turn_bytes = self.room.active_player.socket.recv(4096)
         if not turn_bytes:
             # Connection closed
             raise ConnectionError
@@ -166,7 +135,7 @@ class Game:
         column = turn_data["column"]
 
         # Update board
-        self.update_board(column)
+        self.update_board(column, self.room.active_player.symbol)
 
         # Check for win
         self.check_win()
@@ -174,20 +143,22 @@ class Game:
         # Send updated board to players
         active_board_data = json.dumps({"board": self.board, "game_over": self.game_over, "won": True}).encode()
         non_active_board_data = json.dumps({"board": self.board, "game_over": self.game_over, "won": False}).encode()
-        self.non_active_player.socket.send(non_active_board_data)
-        self.active_player.socket.send(active_board_data)
+        self.room.non_active_player.socket.send(non_active_board_data)
+        self.room.active_player.socket.send(active_board_data)
+
+        self.room.update_active_player()
     
     def close_connections(self):
         print("Room Process: A client disconnected. Closing connection")
         try:
-            self.player1.socket.shutdown(socket.SHUT_RDWR)
-            self.player1.socket.close()
+            self.room.player1.socket.shutdown(socket.SHUT_RDWR)
+            self.room.player1.socket.close()
         except OSError:
             print("Room Process: Player 1 closed the connection already.")
 
         try:
-            self.player2.socket.shutdown(socket.SHUT_RDWR)
-            self.player2.socket.close()
+            self.room.player2.socket.shutdown(socket.SHUT_RDWR)
+            self.room.player2.socket.close()
         except OSError:
             print("Room Process: Player 2 closed the connection already.")
         
@@ -195,7 +166,7 @@ class Game:
         os._exit(0)
 
     def start_game(self):
-        self.assign_players()
+        self.room.assign_players()
         while True:
             try:
                 self.take_turn()
@@ -204,5 +175,10 @@ class Game:
 
             if self.game_over:
                 self.close_connections()
-            self.update_active_player()
+
+
+class Multiplayer(Game):
+
+    def __init__(self, room):
+        super().__init__(room)
 
