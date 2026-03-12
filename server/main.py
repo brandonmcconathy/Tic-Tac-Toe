@@ -3,7 +3,8 @@ import os
 import signal
 import json
 
-from game import Game
+from multiplayer import Multiplayer
+from singleplayer import Singleplayer
 from room import MultiPlayerRoom, SinglePlayerRoom
 from connectionerror import ConnectionError
 
@@ -56,7 +57,7 @@ class Server:
             newpid = os.fork()
             if newpid == 0:
                 # Move process to game loop
-                new_game = Game(new_room)
+                new_game = Singleplayer(new_room)
                 new_game.start_game()   # Room process will exit and never return here
             
             print("Starting new singleplayer room process with pid: ", newpid)
@@ -75,7 +76,7 @@ class Server:
             newpid = os.fork()
             if newpid == 0:
                 # Move process to game loop
-                new_game = Game(self.curr_room)
+                new_game = Multiplayer(self.curr_room)
                 new_game.start_game()   # Room process will exit and never return here
 
             print("Starting new room process with pid: ", newpid)
