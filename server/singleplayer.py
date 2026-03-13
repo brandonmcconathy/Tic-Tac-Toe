@@ -11,7 +11,7 @@ class Singleplayer(Game):
     def __init__(self, room):
         super().__init__(room)
         self.player_active = None
-        self.ai = AI()
+        self.ai = AI(self.room.get_difficulty())
 
     def assign_player_num(self):
         player_num = random.randint(0, 1)
@@ -35,7 +35,7 @@ class Singleplayer(Game):
             
         else:
             # Take AI turn
-            column = self.ai.take_turn()
+            column = self.ai.take_turn(self.board)
             active_symbol = self.ai.symbol
 
         # Update the board with the new move

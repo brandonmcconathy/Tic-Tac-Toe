@@ -21,6 +21,9 @@ class SinglePlayerRoom():
     def add_player(self, player):
         self.player = player
 
+    def get_difficulty(self):
+        return self.difficulty
+
 class MultiPlayerRoom():
 
     def __init__(self):
